@@ -64,6 +64,21 @@ Clean the Netflix titles catalog (multi-line, quoted CSV).
 - `split(...)[0].cast(...)` to extract numeric duration values
 - Save Silver as a Delta table (`netflix_silver`)
 
+### 4 · Gym workout sessions → Silver
+[`notebooks/04-gym-workout-sessions-bronze-to-silver.ipynb`](notebooks/04-gym-workout-sessions-bronze-to-silver.ipynb)
+
+Clean a messy gym workout-log CSV, with a strong focus on **order of operations**
+(clean the text *before* changing the type).
+- Read everything as text first (raw Bronze) — let nothing get silently coerced
+- Two kinds of duplicates: fully identical rows vs. repeated `session_id`
+- Normalize text with `trim` + `initcap` so `groupBy` doesn't split categories
+- Turn fake placeholders (`"ERROR"`, `"N/A"`, `"UNKNOWN"`) into real `NULL`
+- Clean currency text **before** casting: strip `₺` and convert `149,90` → `149.90`
+- Parse a column with **mixed date formats** using `coalesce(try_to_date(...), ...)`
+- Derive `calories_per_min` and an `intensity` label with `when().otherwise()`
+- Apply business-rule filters (keep `duration_min > 0`, `calories_burned > 0`)
+- Save Silver as an idempotent Delta table (`gym_silver`, `overwrite`)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -72,6 +87,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - E-commerce orders — synthetic practice dataset
 - Dirty cafe sales — [Kaggle: "Cafe Sales - Dirty Data for Cleaning Training"](https://www.kaggle.com/datasets/ahmedmohamed2003/cafe-sales-dirty-data-for-cleaning-training)
 - Netflix titles — [Kaggle: "Netflix Movies and TV Shows"](https://www.kaggle.com/datasets/shivamb/netflix-shows)
+- Gym workout sessions — synthetic practice dataset
 
 ## Notes
 
