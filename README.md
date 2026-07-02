@@ -79,6 +79,27 @@ Clean a messy gym workout-log CSV, with a strong focus on **order of operations*
 - Apply business-rule filters (keep `duration_min > 0`, `calories_burned > 0`)
 - Save Silver as an idempotent Delta table (`gym_silver`, `overwrite`)
 
+### 5 · E-commerce event logs → Silver
+[`notebooks/05-ecommerce-event-logs-bronze-to-silver.ipynb`](notebooks/05-ecommerce-event-logs-bronze-to-silver.ipynb)
+
+Parse a raw, **unstructured `.log` file** (one messy text line per event) into a
+clean, typed Silver table — the hardest of the set because the input isn't tabular.
+- Read as **plain text** (one line = one string column), not CSV — the `|`
+  separators would shred a CSV read
+- Tried an **LLM extraction** (`ai_query` with a JSON `responseFormat`) first, then
+  switched to **`regexp_extract`** — deterministic, same result every run
+  (an honest note on *why* the rule-based approach won here)
+- Parse a timestamp column with **two different date formats** using
+  `coalesce(try_to_timestamp(...), try_to_timestamp(...))` — no crash on non-matches
+- Derive a real `date`, a human-readable label (`date_format`), plus date math
+  (`date_add` refund window, `date_diff` recency)
+- Turn placeholders (`N/A`, `ERROR`, `UNKNOWN`, `-`) into real `NULL`
+- Clean dirty money text (`29.99 USD`, `149,90 TL`, `$14.99`) **before** casting to
+  `decimal(10,2)` — strip symbols, fix the comma decimal separator
+- Strip junk characters from product names, drop business-invalid negative amounts
+  (but keep nulls — missing ≠ invalid)
+- Save Silver as an idempotent Delta table (`events_silver`, `overwrite`)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -88,6 +109,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - Dirty cafe sales — [Kaggle: "Cafe Sales - Dirty Data for Cleaning Training"](https://www.kaggle.com/datasets/ahmedmohamed2003/cafe-sales-dirty-data-for-cleaning-training)
 - Netflix titles — [Kaggle: "Netflix Movies and TV Shows"](https://www.kaggle.com/datasets/shivamb/netflix-shows)
 - Gym workout sessions — synthetic practice dataset
+- E-commerce event logs — synthetic practice dataset
 
 ## Notes
 
