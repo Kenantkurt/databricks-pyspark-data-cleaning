@@ -100,6 +100,28 @@ clean, typed Silver table — the hardest of the set because the input isn't tab
   (but keep nulls — missing ≠ invalid)
 - Save Silver as an idempotent Delta table (`events_silver`, `overwrite`)
 
+### 6 · IoT device events → Silver
+[`notebooks/06-iot-device-events-bronze-to-silver.ipynb`](notebooks/06-iot-device-events-bronze-to-silver.ipynb)
+
+Clean IoT device events with **nested JSON columns** — plus a hard-earned lesson
+about table grain.
+- Robust CSV read (`quote` / `escape` / `multiline` — the JSON cells contain commas)
+- Rename messy headers (`Device ID`, `Temp_reading (C)`) in one `withColumnsRenamed` pass
+- **Grain-aware dedup**: the table is event-level, so dedupe **exact full-row
+  duplicates only** — `dropDuplicates(["device_id"])` would silently delete real
+  events (and a matching row count can hide it)
+- Timestamps in **three different formats** → `coalesce(try_to_timestamp × 3)`,
+  then verify nothing became `NULL` silently
+- Placeholders (`N/A`, `UNKNOWN`, `ERROR`) → real `NULL`; currency text
+  (`$`, `€`, comma decimals, `EUR` suffix) cleaned **before** casting to `decimal(10,2)`
+- Negative cost → **keep the row, null the value** (the event is real, only its
+  cost is broken — a different call than dropping the row)
+- **Timezone normalization**: `convert_timezone` CET → UTC at the silver layer
+- **Nested JSON in three shapes**, each with a matching schema: fixed keys →
+  `struct`, repeated items → `array<struct>`, arbitrary pairs → `map<string,string>`
+- Clean a field *inside* a struct with **`withField`** — no flattening needed
+- Save Silver as an idempotent Delta table (`iot_device_events_silver`, `overwrite`)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -110,6 +132,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - Netflix titles — [Kaggle: "Netflix Movies and TV Shows"](https://www.kaggle.com/datasets/shivamb/netflix-shows)
 - Gym workout sessions — synthetic practice dataset
 - E-commerce event logs — synthetic practice dataset
+- IoT device events — synthetic practice dataset
 
 ## Notes
 
