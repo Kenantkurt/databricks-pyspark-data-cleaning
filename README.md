@@ -2,7 +2,8 @@
 
 Hands-on **PySpark data cleaning** exercises built on **Databricks**, following a
 **Bronze → Silver** (medallion) approach. Each notebook takes a raw, messy dataset
-and turns it into a clean, typed, analytics-ready Delta table.
+and turns it into a clean, typed, analytics-ready Delta table. The latest project
+extends the pattern to a **Gold** layer with finance-ready summary tables.
 
 > These are focused practice projects I built while learning PySpark and Spark
 > data engineering on Databricks — each one drills a specific set of cleaning skills
@@ -122,6 +123,27 @@ about table grain.
 - Clean a field *inside* a struct with **`withField`** — no flattening needed
 - Save Silver as an idempotent Delta table (`iot_device_events_silver`, `overwrite`)
 
+### 7 · UK online retail → Silver → Gold (take-home style)
+[`notebooks/07-uk-online-retail-take-home-pipeline.ipynb`](notebooks/07-uk-online-retail-take-home-pipeline.ipynb)
+
+A step up in format: a **real dataset** (~540k actual UK retail transactions) worked
+as a **take-home assignment** — no task list, only business requirements (R1–R5),
+with every decision defended in a written **decision log**.
+- Requirements-driven design: raw layer, clean sales table, finance summaries,
+  re-runnability, decision log
+- Read everything as **string** (no `inferSchema`), profile before cleaning:
+  grain proof (`InvoiceNo + CustomerID` not unique → one row = one invoice line),
+  null counts, numeric ranges
+- **Business-rule filter**: returns/cancellations (`quantity <= 0`) and adjustments
+  (`unit_price <= 0`) are real events but not *sales* → 11,809 rows removed, with counts
+- **Null `CustomerID` on 25% of rows — kept**: still real sales; dropping them would
+  understate revenue by a quarter
+- Full-row `dropDuplicates()` at the invoice-line grain (5,226 double-export artifacts)
+- **Gold layer**: monthly revenue per country + top-10 products, each in both
+  **Spark SQL and DataFrame API**; service codes (`POST`, `M`, `DOT`) in the top-10
+  flagged as non-products
+- Idempotent `overwrite` writes + a code-review style **decision log** (R5)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -133,6 +155,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - Gym workout sessions — synthetic practice dataset
 - E-commerce event logs — synthetic practice dataset
 - IoT device events — synthetic practice dataset
+- UK online retail — [Kaggle: "E-Commerce Data" (real UK retailer transactions)](https://www.kaggle.com/datasets/carrie1/ecommerce-data)
 
 ## Notes
 
