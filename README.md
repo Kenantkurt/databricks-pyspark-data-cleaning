@@ -144,6 +144,29 @@ with every decision defended in a written **decision log**.
   flagged as non-products
 - Idempotent `overwrite` writes + a code-review style **decision log** (R5)
 
+### 9 · Retail orders → Silver (typing & renaming drill)
+[`notebooks/09-retail-orders-bronze-to-silver.ipynb`](notebooks/09-retail-orders-bronze-to-silver.ipynb)
+
+A focused review project drilling the two core moves of every Bronze → Silver job:
+**fixing messy column names** and **converting an all-text table to real types** —
+requirements-only format (R1–R6), with interview-style Q&A answered after every step.
+*(Project 8 — a larger e-commerce take-home — is in progress and will land separately.)*
+- Messy headers (`Order ID`, `cust_NAME`, `' Product '` with hidden spaces) fixed in one
+  `withColumnsRenamed` pass — a rename with a wrong source name **silently does nothing**
+- Placeholders (`ERROR`, `UNKNOWN`, `N/A`) counted per column first, then turned into
+  real `NULL` with `CASE WHEN` — **before** any casting
+- Currency text (`₺`, `TL`) stripped, then cast to `decimal(10,2)`; `%` stripped
+  from `discount`
+- **Six different date formats** in one column → `coalesce(try_to_date × 6)`;
+  before/after null counts prove the cast lost nothing — a missing format first showed
+  up as 25 silent nulls and was fixed by adding formats until the count returned to 0
+- Normalize `status` / `category` / `product` with `trim` + `initcap` so `groupBy`
+  doesn't split one real value into fake buckets
+- Business rule: null quantity **kept** (missing), `quantity <= 0` **dropped** (invalid) —
+  two different problems, two different decisions
+- Final checks (row count, business rule, `order_id` grain) + idempotent Delta write
+  (`retail_orders_silver`, `overwrite`)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -156,6 +179,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - E-commerce event logs — synthetic practice dataset
 - IoT device events — synthetic practice dataset
 - UK online retail — [Kaggle: "E-Commerce Data" (real UK retailer transactions)](https://www.kaggle.com/datasets/carrie1/ecommerce-data)
+- Retail orders — synthetic practice dataset
 
 ## Notes
 
