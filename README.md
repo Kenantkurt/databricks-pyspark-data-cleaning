@@ -167,6 +167,29 @@ requirements-only format (R1–R6), with interview-style Q&A answered after ever
 - Final checks (row count, business rule, `order_id` grain) + idempotent Delta write
   (`retail_orders_silver`, `overwrite`)
 
+### 10 · OranjeCart online shop → Silver → Gold (two-table take-home)
+[`notebooks/10-online-shop-two-table-take-home-pipeline.ipynb`](notebooks/10-online-shop-two-table-take-home-pipeline.ipynb)
+
+First project with **two related dirty tables** (customers + orders) that have to be cleaned
+separately and then joined — requirements-only take-home format, with a reconciliation
+("trust check") and a full decision log.
+- Customers: normalize **then** re-deduplicate — case/whitespace near-duplicates survive a
+  full-row dedup until the text is normalized (57 → 54 → 52, grain proven with counts)
+- Orders: currency text (`€`, `EUR`, comma decimals) stripped before casting; placeholder
+  scan across all 7 columns first
+- **Recovery over deletion**: 5 corrupted quantities, 3 null prices and 5 missing totals all
+  rebuilt from the other two columns (`total ÷ price` gave clean integers) — applied only to
+  the broken rows, so the trust check keeps its evidence
+- **Trust check**: 12 of 132 rows fail `total = qty × price`, all at ratio ≈ 0.90, all
+  Delivered → a 10% discount pattern, not data error; revenue based on `total_amount`
+  (money actually collected)
+- **Anti joins both directions**: 9 orphan orders (kept in totals, out of breakdowns) vs
+  8 customers who never ordered (shown with zeros in Gold)
+- **Gold**: month × city revenue (`yyyy-MM` so 2024/2025 don't merge), top-10 customers, and
+  a 2025 all-customers summary — orders filtered **before** the left join so zero-order
+  customers survive; join fan-out disproven with a row-count check (132 → 132)
+
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -180,6 +203,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - IoT device events — synthetic practice dataset
 - UK online retail — [Kaggle: "E-Commerce Data" (real UK retailer transactions)](https://www.kaggle.com/datasets/carrie1/ecommerce-data)
 - Retail orders — synthetic practice dataset
+- OranjeCart online shop (customers + orders) — synthetic practice dataset, two related tables
 
 ## Notes
 
