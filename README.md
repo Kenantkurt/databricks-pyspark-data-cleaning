@@ -190,6 +190,28 @@ separately and then joined — requirements-only take-home format, with a reconc
   customers survive; join fan-out disproven with a row-count check (132 → 132)
 
 
+### 12 · VeloShop refund requests → Silver → Gold (string repair take-home)
+[`notebooks/12-ecommerce-refund-requests-take-home-pipeline.ipynb`](notebooks/12-ecommerce-refund-requests-take-home-pipeline.ipynb)
+
+Single-table take-home built around **string repair**: restoring identifiers that a tool
+(Excel) silently corrupted, plus the core cleaning routine — with every removal measured
+before it happens.
+- **SKU repair with `lpad`**: Excel stripped the leading zeros from 6-digit SKUs — restored
+  with `trim` + `lpad(sku, 6, "0")`, justified by the catalog team's rule (not an assumption),
+  verified with a `length ≠ 6 → 0 rows` check
+- **`split` + `getItem`** on a pipe-separated category tree (escaped `\\|` — `split` takes a
+  regex), then the column **renamed** so its name matches its new content
+- Duplicate ids proven to be **exact full-row copies** (groupBy all columns) before a
+  full-row dedup (108 → 105)
+- Four date formats in one column → `coalesce(try_to_date × 4)`, 0 nulls after parse
+- Cast safety proven with **before/after null counts** (5 = 5)
+- **Negative amounts**: 2 rows, both approved + electronics — measured, inspected, removed
+  from Silver with the trade-off logged (they also disappear from the Q3 reason counts) and
+  flagged as an upstream data-quality signal
+- **Gold**: approved refund cost per category (ranking depends on the negatives decision),
+  worst month keyed on `yyyy-MM`, top refund reasons with placeholder junk excluded
+
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -204,6 +226,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - UK online retail — [Kaggle: "E-Commerce Data" (real UK retailer transactions)](https://www.kaggle.com/datasets/carrie1/ecommerce-data)
 - Retail orders — synthetic practice dataset
 - OranjeCart online shop (customers + orders) — synthetic practice dataset, two related tables
+- VeloShop refund requests — synthetic practice dataset
 
 ## Notes
 
