@@ -2,8 +2,10 @@
 
 Hands-on **PySpark data cleaning** exercises built on **Databricks**, following a
 **Bronze → Silver** (medallion) approach. Each notebook takes a raw, messy dataset
-and turns it into a clean, typed, analytics-ready Delta table. The latest project
-extends the pattern to a **Gold** layer with finance-ready summary tables.
+and turns it into a clean, typed, analytics-ready Delta table. The later projects
+extend the pattern to a **Gold** layer with business-ready summary tables — and the
+newest one is a pure Gold-layer drill (window functions in SQL and the DataFrame API)
+with the core logic extracted into a module and covered by **pytest unit tests**.
 
 > These are focused practice projects I built while learning PySpark and Spark
 > data engineering on Databricks — each one drills a specific set of cleaning skills
@@ -15,6 +17,7 @@ extends the pattern to a **Gold** layer with finance-ready summary tables.
 - **Spark SQL** (same logic expressed in SQL where useful)
 - **Databricks** (notebooks + Unity Catalog volumes)
 - **Delta Lake** (Silver tables saved via `saveAsTable`)
+- **pytest** (unit tests for extracted transformation logic — from project 13 on)
 
 ## What "Bronze → Silver" means here
 
@@ -212,6 +215,29 @@ before it happens.
   worst month keyed on `yyyy-MM`, top refund reasons with placeholder junk excluded
 
 
+### 13 · SnelBite food delivery — Gold layer & window functions (+ first unit tests)
+[`notebooks/13-food-delivery-gold-layer-pipeline.ipynb`](notebooks/13-food-delivery-gold-layer-pipeline.ipynb)
+· [`gold_functions.py`](notebooks/gold_functions.py) · [`test_gold_functions.py`](notebooks/test_gold_functions.py)
+
+A deliberate change of pace: the data arrives **already clean** (silver), and the whole
+exercise is the **Gold layer** — 10 business questions answered in both **SQL and the
+DataFrame API**, window-function heavy by design.
+- **Month-over-month change per city**: aggregate to city × month first, then
+  `lag() over (partition by city order by month)` — biggest drop isolated with the
+  first-month nulls sorted last (a `lag` null means "no previous month", not an error)
+- **Running total**: `sum() over (order by month rows between unbounded preceding and
+  current row)` to find the month cumulative revenue passed €15,000 — and why
+  `partition by month` would silently reset the counter every month
+- **Order vs city average**: `avg() over (partition by city)` **without** an `order by` —
+  the same window with one keeps the grain but turns the value into a running average;
+  plus the defense answer for "why can't a plain groupBy do this?"
+- **Gold table** `gold_city_monthly` written with an **idempotent overwrite** — which paid
+  off immediately when the spec (avg delivery minutes) required a rebuild
+- **First unit-tested project**: the top-N-per-city logic extracted into
+  `gold_functions.py` and tested with 7 hand-written rows — a deliberate revenue tie
+  (why `row_number()` + tie-breaker beats `rank()`) and a group smaller than n; expected
+  output written by hand, `assert retcode == 0` as the pipeline gate
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -227,6 +253,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - Retail orders — synthetic practice dataset
 - OranjeCart online shop (customers + orders) — synthetic practice dataset, two related tables
 - VeloShop refund requests — synthetic practice dataset
+- SnelBite food delivery — synthetic practice dataset (clean by design — Gold-layer drill)
 
 ## Notes
 
