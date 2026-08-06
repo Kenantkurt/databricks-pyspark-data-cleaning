@@ -238,6 +238,33 @@ DataFrame API**, window-function heavy by design.
   (why `row_number()` + tie-breaker beats `rank()`) and a group smaller than n; expected
   output written by hand, `assert retcode == 0` as the pipeline gate
 
+### 14 · TulpStay hotel bookings — cleaning + Gold + a unit test that caught a real bug
+[`notebooks/14-hotel-bookings-cleaning-gold-pipeline.ipynb`](notebooks/14-hotel-bookings-cleaning-gold-pipeline.ipynb)
+· [`hotel_functions.py`](notebooks/hotel_functions.py) · [`test_hotel_functions.py`](notebooks/test_hotel_functions.py)
+
+Back to the full core routine (dirty booking export → silver → gold), with the testing
+habit from project 13 carried forward.
+- **Measure before you delete**: 143 raw rows → 140 after removing 3 exact duplicates
+  (proven with `groupBy(booking_id).count()`), → 138 after dropping 2 impossible
+  negative-nights rows; placeholder-born nulls **kept** as an upstream DQ signal
+- **Currency repair before the cast**: `€ / EUR / decimal comma` stripped with
+  `replace` + `trim`, then `cast(decimal(10,2))` — order matters, because with ANSI mode
+  on a dirty string doesn't become a quiet null, it throws `CAST_INVALID_INPUT`
+- **`guest_full_name` built the right way round**: trim/initcap each messy column first,
+  `concat_ws(" ", ...)` last — clean at the lowest grain, then combine
+- **Three date formats, one column**: `coalesce(try_to_date × 3)` → 0 unparsed dates (checked)
+- **3-month moving average** with an explicit frame (`rows between 2 preceding and
+  current row`) — and the defense answer for why `order by` alone silently gives a
+  *running* average instead
+- **Best city per month**: aggregate to city × month first, then
+  `rank() over (partition by month order by revenue desc)` — the mirror image of
+  project 13's "top restaurants per city"
+- **The red test earned its keep**: the first version of `clean_price` had no currency
+  cleaning; three hand-written rows exposed it in under a second
+  (`NumberFormatException: [CAST_INVALID_INPUT] '€ 320.50' ... cannot be cast to
+  "DOUBLE"`). The fix went into the function — the hand-written expectation was
+  already right.
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -254,6 +281,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - OranjeCart online shop (customers + orders) — synthetic practice dataset, two related tables
 - VeloShop refund requests — synthetic practice dataset
 - SnelBite food delivery — synthetic practice dataset (clean by design — Gold-layer drill)
+- TulpStay hotel bookings — synthetic practice dataset
 
 ## Notes
 
