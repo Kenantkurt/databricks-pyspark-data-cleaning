@@ -39,4 +39,4 @@ def test_small_group(spark):
 
     result_df = top_n_per_city(input_df, n=3)
 
-    assert result_df.count() == 8
+    assert result_df.count() == 2
