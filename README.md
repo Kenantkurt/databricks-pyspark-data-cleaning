@@ -1,5 +1,7 @@
 # Databricks PySpark — Data Cleaning Practice
 
+[![CI](https://github.com/Kenantkurt/databricks-pyspark-data-cleaning/actions/workflows/ci.yml/badge.svg)](https://github.com/Kenantkurt/databricks-pyspark-data-cleaning/actions/workflows/ci.yml)
+
 Hands-on **PySpark data cleaning** exercises built on **Databricks**, following a
 **Bronze → Silver** (medallion) approach. Each notebook takes a raw, messy dataset
 and turns it into a clean, typed, analytics-ready Delta table. The later projects
@@ -18,6 +20,16 @@ with the core logic extracted into a module and covered by **pytest unit tests**
 - **Databricks** (notebooks + Unity Catalog volumes)
 - **Delta Lake** (Silver tables saved via `saveAsTable`)
 - **pytest** (unit tests for extracted transformation logic — from project 13 on)
+
+## Continuous integration
+
+Every push runs the test suite on a clean Ubuntu runner
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): Python 3.11 and Java 17 are
+installed, dependencies come from `Pipfile.lock`, and `pytest` runs the unit tests for
+the extracted transformation logic.
+
+`main` is protected: changes arrive through a pull request, and the merge button stays
+locked until the `test` job is green — nothing merges red.
 
 ## What "Bronze → Silver" means here
 
