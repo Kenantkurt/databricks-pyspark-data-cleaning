@@ -265,6 +265,30 @@ habit from project 13 carried forward.
   "DOUBLE"`). The fix went into the function — the hand-written expectation was
   already right.
 
+### 15 · CineNoord cinema tickets — repair the column, keep the row
+[`notebooks/15-cinema-ticket-sales-cleaning-gold-unittest.ipynb`](notebooks/15-cinema-ticket-sales-cleaning-gold-unittest.ipynb)
+· [`cinema_functions.py`](notebooks/cinema_functions.py) · [`test_cinema_functions.py`](notebooks/test_cinema_functions.py)
+
+A messy POS export from a small Dutch cinema chain — and a lesson about what a
+harmless-looking filter actually deletes.
+- **`price_total > 0` is a deletion, not a cleaning step**: `null > 0` is `null`, so that
+  filter removes the unknown rows too. Counted first instead: 5 unrecoverable prices,
+  1 missing and 2 negative seat counts
+- **Repair the column, keep the row**: the three rows with an impossible seat count carried
+  **€200 of valid revenue** (out of €5,591) — the seat value became `null`, the sale stayed
+- **Cross-field data quality**: `booking_code` starts with a city code, so it can be checked
+  against `city` through an explicit mapping (comparing the first three letters happens to
+  work for these three cities — and breaks silently on the fourth). Two rows disagree;
+  they are **flagged, not fixed**, because there is no way to know which field is wrong
+- **Normalise before dedup**, then prove it: 3 repeated `ticket_id`s were identical in
+  *every* column → full-row `dropDuplicates()`, 123 → 120
+- **Four date formats, one column**: `coalesce(try_to_date × 4)`, verified 0 unparsed
+- **`dense_rank()` chosen on purpose** for "top 2 movies per city": a tie shows both movies,
+  at the cost of returning three rows — the trade-off against `row_number()` + tie-breaker
+  is written down instead of defaulted into
+- **The tie lives in the test**: 5 hand-made rows with two movies on exactly 300, expected
+  output written by hand — swapping the ranking function makes the test fail on purpose
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -282,6 +306,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - VeloShop refund requests — synthetic practice dataset
 - SnelBite food delivery — synthetic practice dataset (clean by design — Gold-layer drill)
 - TulpStay hotel bookings — synthetic practice dataset
+- CineNoord cinema ticket sales — synthetic practice dataset
 
 ## Notes
 
