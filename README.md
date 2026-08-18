@@ -5,9 +5,10 @@
 Hands-on **PySpark data cleaning** exercises built on **Databricks**, following a
 **Bronze → Silver** (medallion) approach. Each notebook takes a raw, messy dataset
 and turns it into a clean, typed, analytics-ready Delta table. The later projects
-extend the pattern to a **Gold** layer with business-ready summary tables — and the
-newest one is a pure Gold-layer drill (window functions in SQL and the DataFrame API)
-with the core logic extracted into a module and covered by **pytest unit tests**.
+extend the pattern to a **Gold** layer with business-ready summary tables, with core
+logic extracted into modules and covered by **pytest unit tests** — and the newest one
+is a **three-table take-home** centred on joins: key normalization, anti joins,
+join-type decisions and fan-out proofs.
 
 > These are focused practice projects I built while learning PySpark and Spark
 > data engineering on Databricks — each one drills a specific set of cleaning skills
@@ -301,6 +302,32 @@ harmless-looking filter actually deletes.
 - **The tie lives in the test**: 5 hand-made rows with two movies on exactly 300, expected
   output written by hand — swapping the ranking function makes the test fail on purpose
 
+### 16 · Boekenhuis online bookstore — first three-table take-home (joins)
+[`notebooks/16-online-bookstore-orders-join-take-home-pipeline.ipynb`](notebooks/16-online-bookstore-orders-join-take-home-pipeline.ipynb)
+· [`bookstore_functions.py`](notebooks/bookstore_functions.py) · [`test_bookstore_functions.py`](notebooks/test_bookstore_functions.py)
+
+Orders from a webshop, customers from a CRM, a book catalog — and two systems that
+were "never properly integrated". The new muscle here is **joins as decisions**.
+- **Dirty join keys fail silently**: an anti join first reported 6 customers missing from
+  the CRM — 4 of them were just lowercase variants of real IDs (`cu-102`, `Cu-113`, …).
+  After `trim` + `upper` on both sides, only **2 real orphans** remained
+- **Join type is a business decision**: the 2 orphan orders carry **€56.85** of delivered
+  revenue — an inner join would silently drop them, so they are kept with a **left join +
+  flag** (`customer_missing_in_crm`) and reported upstream
+- **Anti join direction, learned the hard way**: the returned side is the *left* side —
+  "from the left side, which rows have no partner on the right?"
+- **Fan-out proof**: 109 orders before the join, 109 after — guaranteed by `customer_id`
+  being unique in customers (checked during profiling), proven by the count
+- **`sum(a*b)` ≠ `sum(a)*sum(b)`**: the first revenue draft multiplied the sums and
+  inflated January ~9× (2355.15 vs the correct 253.70) — multiply at row level, then sum
+- **SQL + API as cross-validation**: the API version of the monthly-revenue question was
+  quietly missing the `delivered` filter; comparing the two outputs caught it in seconds
+- **Window with no `orderBy` on purpose** for "orders above their category average":
+  a per-category average must cover the whole partition, and the result keeps
+  **one row per order** — exactly what `groupBy` cannot do
+- **Tests again**: happy path with hand-written expected rows + an empty case proving
+  the function returns 0 rows when every customer has an order (`pytest`, 2 passed)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -319,6 +346,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - SnelBite food delivery — synthetic practice dataset (clean by design — Gold-layer drill)
 - TulpStay hotel bookings — synthetic practice dataset
 - CineNoord cinema ticket sales — synthetic practice dataset
+- Boekenhuis online bookstore (orders + customers + books) — synthetic practice dataset, three related tables
 
 ## Notes
 
