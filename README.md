@@ -6,9 +6,10 @@ Hands-on **PySpark data cleaning** exercises built on **Databricks**, following 
 **Bronze → Silver** (medallion) approach. Each notebook takes a raw, messy dataset
 and turns it into a clean, typed, analytics-ready Delta table. The later projects
 extend the pattern to a **Gold** layer with business-ready summary tables, with core
-logic extracted into modules and covered by **pytest unit tests** — and the newest one
-is a **three-table take-home** centred on joins: key normalization, anti joins,
-join-type decisions and fan-out proofs.
+logic extracted into modules and covered by **pytest unit tests** — the later ones are
+**multi-table take-homes** centred on joins (key normalization, anti joins, join-type
+decisions, fan-out proofs), and the newest adds the engineering side: join strategy read
+from the physical plan and a deliberate bad write repaired with Delta `RESTORE`.
 
 > These are focused practice projects I built while learning PySpark and Spark
 > data engineering on Databricks — each one drills a specific set of cleaning skills
@@ -328,6 +329,34 @@ were "never properly integrated". The new muscle here is **joins as decisions**.
 - **Tests again**: happy path with hand-written expected rows + an empty case proving
   the function returns 0 rows when every customer has an order (`pytest`, 2 passed)
 
+### 17 · BeanBox coffee orders — two-source take-home (Parquet + CSV, gold twice, Delta recovery)
+[`notebooks/17-beanbox-coffee-orders-take-home-pipeline.ipynb`](notebooks/17-beanbox-coffee-orders-take-home-pipeline.ipynb)
+· [`beanbox_functions.py`](notebooks/beanbox_functions.py) · [`test_beanbox_functions.py`](notebooks/test_beanbox_functions.py)
+
+Finance rejected a revenue report because the total changed on every re-run. Orders
+arrive as Parquet (typed), the catalog as CSV (all strings); no documentation.
+- **Profile before cast, count nulls on both sides**: 3 junk prices in, 3 nulls out —
+  a proof, not a guess. Dates in two formats → `coalesce(try_to_date × 2)`, 0 unparsed
+- **Delete only exact copies, null everything else**: 107 → **104** full-row duplicates;
+  a negative quantity on a delivered order became null and the row stayed
+- **Orphans decide the join type**: 2 orders point to a product missing from the
+  catalog (P-999) → **left join**, kept as a "no category" line (€5.20); 104 = 104 after
+  the join
+- **Every gold question in SQL *and* the DataFrame API**, and the numbers must match:
+  revenue per category (Accessories 930.70 > Espresso > Lungo > Decaf, total **€1,379.10**),
+  monthly revenue with a **3-month moving average** (`rows between 2 preceding and
+  current row`; without the frame it silently becomes a running average — April checked
+  by hand, 203.35), products never sold (`left_anti`: P-206, P-212)
+- **The log as evidence**: `DESCRIBE HISTORY` shows five overwrites writing exactly
+  104 rows and 3,320 bytes each time — idempotency you can point at
+- **Broadcast read from the plan**: `BroadcastHashJoin … BuildRight` on the 12-row
+  lookup; the only exchange in the plan comes from the dedup, not the join
+- **Delta recovery rehearsal**: a deliberate `UPDATE` ×100 on 78 rows, then an
+  `OPTIMIZE` Databricks ran on its own, then `RESTORE TO VERSION AS OF 4` — the last
+  version I trusted, not the last version
+- **Unit test on the G1 logic** with hand-written expected totals; learned that Spark
+  infers types from Python values (decimal vs double schema mismatch caught by the test)
+
 ## Datasets
 
 The raw CSVs are read from Databricks Unity Catalog **Volumes**
@@ -347,6 +376,7 @@ The raw CSVs are read from Databricks Unity Catalog **Volumes**
 - TulpStay hotel bookings — synthetic practice dataset
 - CineNoord cinema ticket sales — synthetic practice dataset
 - Boekenhuis online bookstore (orders + customers + books) — synthetic practice dataset, three related tables
+- BeanBox coffee orders (orders Parquet + products CSV) — synthetic practice dataset, two sources in two formats
 
 ## Notes
 
